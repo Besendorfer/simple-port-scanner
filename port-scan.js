@@ -45,14 +45,14 @@ let scan = (hosts, ports) => {
 	let socket = net.createConnection(ports, hosts);
 	socket.setTimeout(2000);
 
-	let result = {
-		status: {}
-	};
+	let result = {};
 
 	let deferred = Q.defer();
 
 	// Create callback functions for each possible result.
 	socket.on('error', (err) => {
+		result.status = {};
+
 		if (err.message.indexOf('ECONNREFUSED') !== -1) {
 			result.status.state = 'closed';
 			result.status.reason = 'connection refused';
@@ -63,30 +63,45 @@ let scan = (hosts, ports) => {
 		}
 		else
 			result.status.state = err.message;
+
+		debug && console.log('error');
 	});
 	socket.on('timeout', () => {
+		result.status = {};
+
 		if (result.isOpen) result.status.state = 'open';
 		else {
 			result.status.state = 'closed';
 			result.status.reason = 'connection timed out';
 		}
 
+		debug && console.log('timeout');
+
 		socket.destroy();
 	});
 	socket.on('connect', () => {
 		result.isOpen = true;
+		debug && console.log('connect');
 	});
 	socket.on('data', (data) => {
 		// This might be useful later to get port information
 		// console.log(data);
 		result.receivedData = true;
 
+		debug && console.log('data');
+
 		socket.destroy();
 	});
 	socket.on('close', () => {
-		if (!result.receivedData) result.isOpen = false;
+		if (!result.receivedData) {
+			result.isOpen = false;
+			result.status.state = 'closed';
+			result.status.reason = 'no data received';
+		}
 
 		socket.destroy();
+
+		debug && console.log('close');
 
 		// It appears that 'close' is always called at the end, so
 		// I feel that putting the deferred.resolve here is probably
@@ -107,4 +122,6 @@ let result = scan(hosts, ports);
 // wait until we get data back from those calls.
 result.then((data) => {
 	debug && console.log(data);
+
+	console.log(data);
 });
