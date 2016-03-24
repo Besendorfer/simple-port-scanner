@@ -4,11 +4,11 @@ const net = require('net');
 const dgram = require('dgram');
 const Q = require('q');
 
-let debug = false;
+let debug = true;
 
 // grab useful args and map them into an object
 let getArgs = (argv) => {
-	let usefulArgs = {};
+	let usefulArgs = { tcp: 'true' };
 
 	argv.slice(2).forEach((data) => {
 		if (data.indexOf('--') !== -1) {
@@ -39,13 +39,13 @@ let parsePorts = (ports) => {
 
 // Scan the hosts and the ports. Eventually, it would be nice to scan
 // the hosts concurrently, but this is just super simple right now.
-let tcpScan = (hosts, ports) => {
+let tcpScan = (host, port) => {
 	// This is assuming there is only one host and one port. This will
 	// be built up later.
-	let socket = net.createConnection(ports, hosts);
+	let socket = net.createConnection(port, host);
 	socket.setTimeout(2000);
 
-	let result = {};
+	let result = { host, port, type: 'TCP' };
 
 	let deferred = Q.defer();
 
@@ -94,10 +94,13 @@ let tcpScan = (hosts, ports) => {
 	});
 	socket.on('close', () => {
 		if (!result.receivedData && result.isOpen) {
+			result.status = {};
 			result.isOpen = false;
-			result.status.state = 'closed';
+			result.status.state = 'open';
 			result.status.reason = 'no data received';
 		}
+
+		//console.log(result);
 
 		socket.destroy();
 
@@ -113,26 +116,56 @@ let tcpScan = (hosts, ports) => {
 };
 
 // The udp version of the scan
-let udpScan = function (hosts, ports) {
+let udpScan = (host, port) => {
+	const buffer = new Buffer('Some bytes');
+	const socket = dgram.createSocket('udp4');
 
+	let deferred = Q.defer();
+	let result = { host, port, type: 'UDP' };
+
+	socket.send(buffer, 0, buffer.length, port, host, (err) => {
+		result.data = err;
+		deferred.resolve(result);
+		socket.close();
+	});
+
+	return deferred.promise;
 }
 
 let args = getArgs(process.argv);
-let hosts = parseHosts(args.hosts);
-let ports = parsePorts(args.ports);
+let hosts = parseHosts([args.hosts]);
+let ports = parsePorts([args.ports]);
 
-let result = tcpScan(hosts, ports);
+let tcpScans = [];
+let udpScans = [];
+
+// Gather scans
+hosts.forEach((host) => {
+	ports.forEach((port) => {
+		if (args.tcp === 'true') tcpScans.push(tcpScan(host, port));
+		if (args.udp === 'true') udpScans.push(udpScan(host, port));
+	});
+});
+
+let allScans = tcpScans.concat(udpScans);
 
 // Because those socket.on calls are asynchronous, we need to
 // wait until we get data back from those calls.
-result.then((data) => {
-	debug && console.log(data);
+Q.all(allScans).then((results) => {
+	debug && console.log(results);
 
-	console.log(data);
-	var output = hosts + ':' + ports + ' | ';
+	results.forEach((result) => {
+		let output = result.host + ':' + result.port + ' | ' + result.type + ' | ';
 
-	if (data.isOpen) output += 'open';
-	else if (data.status) output += data.status.state + ' (' + data.status.reason + ')';
+		if (result.type === 'TCP') {
+			if (result.isOpen) output += 'open';
+			else if (result.status) output += result.status.state + ' (' + result.status.reason + ')';
+		}
+		else if (result.type === 'UDP') {
+			if (result.data || result.data === 0) output += 'closed';
+			else output += 'maybe open (no data or error received)';
+		}
 
-	console.log(output);
+		console.log(output);
+	});
 });
