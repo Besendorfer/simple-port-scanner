@@ -154,11 +154,41 @@ let udpScan = (host, port) => {
 
 // To determine if the machine is alive (not super reliable)
 let icmpScan = (host) => {
+	let deferred = Q.defer();
+	let result = { host };
 
+	const session = ping.createSession();
+
+	session.pingHost(host, (err, host) => {
+		result.alive = !err;
+		deferred.resolve(result);
+		session.close();
+	});
+
+	return deferred.promise;
 };
 
 let icmpTraceroute = (host) => {
+	let deferred = Q.defer();
+	let result = { host, type: 'traceroute' };
 
+	const session = ping.createSession();
+
+	session.traceRoute(host, 20, 
+		(err, host, ttl, sent, rcvd) => {
+			console.log('error: ' + err);
+			console.log('host: ' + host);
+			console.log('ttl: ' + ttl);
+			console.log('sent: ' + sent);
+			console.log('rcvd: ' + rcvd);
+		},
+		(err, host) => {
+			console.log(err, host);
+			result.data = host;
+			deferred.resolve(result);
+		});
+
+	return deferred.promise;
 };
 
 let args = getArgs(process.argv);
@@ -175,7 +205,9 @@ hosts.forEach((host) => {
 });
 
 Q.all(icmpScans).then((icmpScanResults) => {
-	let aliveHosts = [];
+	let aliveHosts = args.icmp === 'true' ? [] : hosts;
+
+	//console.log(aliveHosts);
 
 	icmpScanResults.forEach((scanResult) => {
 		if (scanResult.alive) aliveHosts.push(scanResult.host);
@@ -186,7 +218,7 @@ Q.all(icmpScans).then((icmpScanResults) => {
 		if (args.traceroute === 'true') icmpTraceroutes.push(icmpTraceroute(host));
 	});
 
-	hosts.forEach((host) => {
+	aliveHosts.forEach((host) => {
 		ports.forEach((port) => {
 			if (args.tcp === 'true') tcpScans.push(tcpScan(host, port, parseInt(args.timeout)));
 			if (args.udp === 'true') udpScans.push(udpScan(host, port));
