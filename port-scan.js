@@ -34,7 +34,7 @@ let parseHosts = (hosts) => {
 	return commaHosts;
 };
 
-// Same to above.
+// Same as above.
 let parsePorts = (ports) => {
 	debug && console.log(ports);
 
@@ -44,7 +44,8 @@ let parsePorts = (ports) => {
 				let interval = port.split('-');
 				let length = interval[1] - interval[0] + 1;
 
-				return Array.from(Array(length).keys()).map(x => x + parseInt(interval[0])).map(String);
+				return Array.from(Array(length).keys())
+							.map(x => x + parseInt(interval[0])).map(String);
 			}
 			return port;
 		}).reduce((first, second) => first.concat(second), []);
@@ -100,7 +101,6 @@ let tcpScan = (host, port) => {
 	});
 	socket.on('data', (data) => {
 		// This might be useful later to get port information
-		// console.log(data);
 		result.receivedData = true;
 
 		debug && console.log('data');
@@ -114,8 +114,6 @@ let tcpScan = (host, port) => {
 			result.status.state = 'open';
 			result.status.reason = 'no data received';
 		}
-
-		//console.log(result);
 
 		socket.destroy();
 
@@ -169,8 +167,9 @@ let allScans = tcpScans.concat(udpScans);
 Q.all(allScans).then((results) => {
 	debug && console.log(results);
 
-	results.forEach((result) => {
-		let output = result.host + ':' + result.port + ' | ' + result.type + ' | ';
+	results.sort((a, b) => a.host.split('.')[3] - b.host.split('.')[3])
+	.forEach((result) => {
+		let output = result.host + ':' + result.port + '\t' + result.type + '\t';
 
 		if (result.type === 'TCP') {
 			if (result.isOpen) output += 'open';
