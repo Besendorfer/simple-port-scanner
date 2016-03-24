@@ -39,7 +39,7 @@ let parsePorts = (ports) => {
 
 // Scan the hosts and the ports. Eventually, it would be nice to scan
 // the hosts concurrently, but this is just super simple right now.
-let scan = (hosts, ports) => {
+let tcpScan = (hosts, ports) => {
 	// This is assuming there is only one host and one port. This will
 	// be built up later.
 	let socket = net.createConnection(ports, hosts);
@@ -93,7 +93,7 @@ let scan = (hosts, ports) => {
 		socket.destroy();
 	});
 	socket.on('close', () => {
-		if (!result.receivedData) {
+		if (!result.receivedData && result.isOpen) {
 			result.isOpen = false;
 			result.status.state = 'closed';
 			result.status.reason = 'no data received';
@@ -112,11 +112,16 @@ let scan = (hosts, ports) => {
 	return deferred.promise;
 };
 
+// The udp version of the scan
+let udpScan = function (hosts, ports) {
+
+}
+
 let args = getArgs(process.argv);
 let hosts = parseHosts(args.hosts);
 let ports = parsePorts(args.ports);
 
-let result = scan(hosts, ports);
+let result = tcpScan(hosts, ports);
 
 // Because those socket.on calls are asynchronous, we need to
 // wait until we get data back from those calls.
@@ -124,4 +129,10 @@ result.then((data) => {
 	debug && console.log(data);
 
 	console.log(data);
+	var output = hosts + ':' + ports + ' | ';
+
+	if (data.isOpen) output += 'open';
+	else if (data.status) output += data.status.state + ' (' + data.status.reason + ')';
+
+	console.log(output);
 });
