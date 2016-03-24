@@ -4,7 +4,7 @@ const net = require('net');
 const dgram = require('dgram');
 const Q = require('q');
 
-let debug = true;
+let debug = false;
 
 // grab useful args and map them into an object
 let getArgs = (argv) => {
@@ -28,13 +28,28 @@ let getArgs = (argv) => {
 // a range/subnet.
 let parseHosts = (hosts) => {
 	debug && console.log(hosts);
-	return hosts;
+
+	let commaHosts = hosts.split(',');
+
+	return commaHosts;
 };
 
 // Same to above.
 let parsePorts = (ports) => {
 	debug && console.log(ports);
-	return ports;
+
+	if (ports.indexOf('-') !== -1) {
+		return ports.split(',').map((port) => {
+			if (port.indexOf('-') !== -1) {
+				let interval = port.split('-');
+				let length = interval[1] - interval[0] + 1;
+
+				return Array.from(Array(length).keys()).map(x => x + parseInt(interval[0])).map(String);
+			}
+			return port;
+		}).reduce((first, second) => first.concat(second), []);
+	}
+	else return ports.split(',');
 };
 
 // Scan the hosts and the ports. Eventually, it would be nice to scan
@@ -133,8 +148,8 @@ let udpScan = (host, port) => {
 }
 
 let args = getArgs(process.argv);
-let hosts = parseHosts([args.hosts]);
-let ports = parsePorts([args.ports]);
+let hosts = parseHosts(args.hosts);
+let ports = parsePorts(args.ports);
 
 let tcpScans = [];
 let udpScans = [];
@@ -149,7 +164,7 @@ hosts.forEach((host) => {
 
 let allScans = tcpScans.concat(udpScans);
 
-// Because those socket.on calls are asynchronous, we need to
+// Because those socket calls are asynchronous, we need to
 // wait until we get data back from those calls.
 Q.all(allScans).then((results) => {
 	debug && console.log(results);
