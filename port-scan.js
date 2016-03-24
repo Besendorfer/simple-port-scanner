@@ -24,6 +24,8 @@ let getArgs = (argv) => {
 	return usefulArgs;
 };
 
+// Doesn't currently allow for subnets. I'll probably make the subnet super simple
+// and just allow /24 right now.
 let parseHosts = (hosts) => {
 	debug && console.log(hosts);
 
@@ -44,6 +46,8 @@ let parseHosts = (hosts) => {
 	else return hosts.split(',');
 };
 
+// Am I missing anything? Also, a regex probably could have caught everything, but I really
+// didn't want to mess with that.
 let parsePorts = (ports) => {
 	debug && console.log(ports);
 
@@ -106,7 +110,7 @@ let tcpScan = (host, port, timeout) => {
 		debug && console.log('connect');
 	});
 	socket.on('data', (data) => {
-		// This might be useful later to get port information
+		// This might be useful later to get port service information
 		result.receivedData = true;
 
 		debug && console.log('data');
@@ -135,7 +139,8 @@ let tcpScan = (host, port, timeout) => {
 };
 
 // The udp version of the scan. It is super simple, and probably doesn't
-// work very well. But it is the best I could find.
+// work very well. But it is the best I could find. Node.js doesn't really
+// have any other tools available.
 let udpScan = (host, port) => {
 	const buffer = new Buffer('Some bytes');
 	const socket = dgram.createSocket('udp4');
@@ -152,7 +157,8 @@ let udpScan = (host, port) => {
 	return deferred.promise;
 }
 
-// To determine if the machine is alive (not super reliable)
+// To determine if the machine is alive (not super reliable, but definitely better than nothing)
+// Only runs if the icmp flag is true.
 let icmpScan = (host) => {
 	let deferred = Q.defer();
 	let result = { host };
@@ -168,6 +174,7 @@ let icmpScan = (host) => {
 	return deferred.promise;
 };
 
+// Does a traceroute. Unsure how reliable this is, but it seems to be working.
 let icmpTraceroute = (host) => {
 	let deferred = Q.defer();
 	let result = { host, type: 'traceroute', route: [] };
