@@ -3,6 +3,7 @@
 const net = require('net');
 const dgram = require('dgram');
 const Q = require('q');
+const ping = require('net-ping');
 
 let debug = false;
 
@@ -151,41 +152,68 @@ let udpScan = (host, port) => {
 	return deferred.promise;
 }
 
+// To determine if the machine is alive (not super reliable)
+let icmpScan = (host) => {
+
+};
+
+let icmpTraceroute = (host) => {
+
+};
+
 let args = getArgs(process.argv);
 let hosts = parseHosts(args.hosts);
 let ports = parsePorts(args.ports);
 
+let icmpScans = [];
+let icmpTraceroutes = [];
 let tcpScans = [];
 let udpScans = [];
 
-// Gather scans
 hosts.forEach((host) => {
-	ports.forEach((port) => {
-		if (args.tcp === 'true') tcpScans.push(tcpScan(host, port, parseInt(args.timeout)));
-		if (args.udp === 'true') udpScans.push(udpScan(host, port));
-	});
+	if (args.icmp === 'true') icmpScans.push(icmpScan(host));
 });
 
-let allScans = tcpScans.concat(udpScans);
+Q.all(icmpScans).then((icmpScanResults) => {
+	let aliveHosts = [];
 
-// Because those socket calls are asynchronous, we need to
-// wait until we get data back from those calls.
-Q.all(allScans).then((results) => {
-	debug && console.log(results);
+	icmpScanResults.forEach((scanResult) => {
+		if (scanResult.alive) aliveHosts.push(scanResult.host);
+	});
 
-	results.sort((a, b) => a.host.split('.')[3] - b.host.split('.')[3])
-	.forEach((result) => {
-		let output = result.host + ':' + result.port + '\t' + result.type + '\t';
+	// Gather scans
+	aliveHosts.forEach((host) => {
+		if (args.traceroute === 'true') icmpTraceroutes.push(icmpTraceroute(host));
+	});
 
-		if (result.type === 'TCP') {
-			if (result.isOpen) output += 'open';
-			else if (result.status) output += result.status.state + ' (' + result.status.reason + ')';
-		}
-		else if (result.type === 'UDP') {
-			if (result.data || result.data === 0) output += 'closed';
-			else output += 'maybe open (no data or error received)';
-		}
+	hosts.forEach((host) => {
+		ports.forEach((port) => {
+			if (args.tcp === 'true') tcpScans.push(tcpScan(host, port, parseInt(args.timeout)));
+			if (args.udp === 'true') udpScans.push(udpScan(host, port));
+		});
+	});
 
-		console.log(output);
+	let allScans = tcpScans.concat(udpScans).concat(icmpTraceroutes);
+
+	// Because those socket calls are asynchronous, we need to
+	// wait until we get data back from those calls.
+	Q.all(allScans).then((results) => {
+		debug && console.log(results);
+
+		results.sort((a, b) => a.host.split('.')[3] - b.host.split('.')[3])
+		.forEach((result) => {
+			let output = result.host + ':' + result.port + '\t' + result.type + '\t';
+
+			if (result.type === 'TCP') {
+				if (result.isOpen) output += 'open';
+				else if (result.status) output += result.status.state + ' (' + result.status.reason + ')';
+			}
+			else if (result.type === 'UDP') {
+				if (result.data || result.data === 0) output += 'closed';
+				else output += 'maybe open (no data or error received)';
+			}
+
+			console.log(output);
+		});
 	});
 });
