@@ -170,22 +170,20 @@ let icmpScan = (host) => {
 
 let icmpTraceroute = (host) => {
 	let deferred = Q.defer();
-	let result = { host, type: 'traceroute' };
+	let result = { host, type: 'traceroute', route: [] };
+	let order = 0;
 
 	const session = ping.createSession();
 
 	session.traceRoute(host, 20, 
 		(err, host, ttl, sent, rcvd) => {
-			console.log('error: ' + err);
-			console.log('host: ' + host);
-			console.log('ttl: ' + ttl);
-			console.log('sent: ' + sent);
-			console.log('rcvd: ' + rcvd);
+			if (err instanceof ping.TimeExceededError) {
+				result.route.push({ ip: err.source, order: ++order });
+			}
 		},
 		(err, host) => {
-			console.log(err, host);
-			result.data = host;
-			deferred.resolve(result);
+			if (!err) deferred.resolve(result);
+			else deferred.reject(result);
 		});
 
 	return deferred.promise;
@@ -206,8 +204,6 @@ hosts.forEach((host) => {
 
 Q.all(icmpScans).then((icmpScanResults) => {
 	let aliveHosts = args.icmp === 'true' ? [] : hosts;
-
-	//console.log(aliveHosts);
 
 	icmpScanResults.forEach((scanResult) => {
 		if (scanResult.alive) aliveHosts.push(scanResult.host);
@@ -243,6 +239,9 @@ Q.all(icmpScans).then((icmpScanResults) => {
 			else if (result.type === 'UDP') {
 				if (result.data || result.data === 0) output += 'closed';
 				else output += 'maybe open (no data or error received)';
+			}
+			else if (result.type === 'traceroute') {
+				console.log(result);
 			}
 
 			console.log(output);
