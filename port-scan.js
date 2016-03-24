@@ -8,7 +8,7 @@ let debug = false;
 
 // grab useful args and map them into an object
 let getArgs = (argv) => {
-	let usefulArgs = { tcp: 'true' };
+	let usefulArgs = { tcp: 'true', timeout: 2000 };
 
 	argv.slice(2).forEach((data) => {
 		if (data.indexOf('--') !== -1) {
@@ -23,18 +23,26 @@ let getArgs = (argv) => {
 	return usefulArgs;
 };
 
-// Initially, we'll make this super simple and just parse one host.
-// In the future, it will be capable of supporting multiple hosts and
-// a range/subnet.
 let parseHosts = (hosts) => {
 	debug && console.log(hosts);
 
-	let commaHosts = hosts.split(',');
+	if(hosts.indexOf('-') !== -1) {
+		return hosts.split(',').map((host) => {
+			if (host.indexOf('-') !== -1) {
+				let firstThree = host.split('.')[0] + '.' + host.split('.')[1] + '.' + host.split('.')[2];
+				let interval = host.split('.')[3].split('-');
+				let length = interval[1] - interval[0] + 1;
 
-	return commaHosts;
+				return Array.from(Array(length).keys())
+							.map(x => x + parseInt(interval[0]))
+							.map(String)
+							.map(x => firstThree + '.' + x);
+			}
+		}).reduce((first, second) => first.concat(second), []);
+	}
+	else return hosts.split(',');
 };
 
-// Same as above.
 let parsePorts = (ports) => {
 	debug && console.log(ports);
 
@@ -53,13 +61,10 @@ let parsePorts = (ports) => {
 	else return ports.split(',');
 };
 
-// Scan the hosts and the ports. Eventually, it would be nice to scan
-// the hosts concurrently, but this is just super simple right now.
-let tcpScan = (host, port) => {
-	// This is assuming there is only one host and one port. This will
-	// be built up later.
+// Scan the hosts and the ports.
+let tcpScan = (host, port, timeout) => {
 	let socket = net.createConnection(port, host);
-	socket.setTimeout(2000);
+	socket.setTimeout(timeout);
 
 	let result = { host, port, type: 'TCP' };
 
@@ -128,7 +133,8 @@ let tcpScan = (host, port) => {
 	return deferred.promise;
 };
 
-// The udp version of the scan
+// The udp version of the scan. It is super simple, and probably doesn't
+// work very well. But it is the best I could find.
 let udpScan = (host, port) => {
 	const buffer = new Buffer('Some bytes');
 	const socket = dgram.createSocket('udp4');
@@ -155,7 +161,7 @@ let udpScans = [];
 // Gather scans
 hosts.forEach((host) => {
 	ports.forEach((port) => {
-		if (args.tcp === 'true') tcpScans.push(tcpScan(host, port));
+		if (args.tcp === 'true') tcpScans.push(tcpScan(host, port, parseInt(args.timeout)));
 		if (args.udp === 'true') udpScans.push(udpScan(host, port));
 	});
 });
