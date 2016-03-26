@@ -7,7 +7,7 @@ const ping = require('net-ping');
 
 let debug = false;
 
-// TODO: 	format traceroute in output
+// TODO: 	
 //			--help for info
 //			Also, make sure that when something weird happens in the arguments, it shows --help
 //			Hope that I get a decent amount of points...
@@ -15,10 +15,10 @@ let debug = false;
 // grab useful args and map them into an object
 // There are plenty of useful npm packages that help out with this, I will switch to one of those
 // when I get a chance.
-let getArgs = (argv) => {
+let getArgs = argv => {
 	let usefulArgs = { tcp: 'true', timeout: 2000 };
 
-	argv.slice(2).forEach((data) => {
+	argv.slice(2).forEach(data => {
 		if (data.indexOf('--') !== -1) {
 			let equals = data.indexOf('=');
 
@@ -33,11 +33,11 @@ let getArgs = (argv) => {
 
 // Doesn't currently allow for subnets. I'll probably make the subnet super simple
 // and just allow /24 right now.
-let parseHosts = (hosts) => {
+let parseHosts = hosts => {
 	debug && console.log(hosts);
 
 	if(hosts.indexOf('-') !== -1) {
-		return hosts.split(',').map((host) => {
+		return hosts.split(',').map(host => {
 			if (host.indexOf('-') !== -1) {
 				let firstThree = host.split('.')[0] + '.' + host.split('.')[1] + '.' + host.split('.')[2];
 				let interval = host.split('.')[3].split('-');
@@ -55,11 +55,11 @@ let parseHosts = (hosts) => {
 
 // Am I missing anything? Also, a regex probably could have caught everything, but I really
 // didn't want to mess with that.
-let parsePorts = (ports) => {
+let parsePorts = ports => {
 	debug && console.log(ports);
 
 	if (ports.indexOf('-') !== -1) {
-		return ports.split(',').map((port) => {
+		return ports.split(',').map(port => {
 			if (port.indexOf('-') !== -1) {
 				let interval = port.split('-');
 				let length = interval[1] - interval[0] + 1;
@@ -83,7 +83,7 @@ let tcpScan = (host, port, timeout) => {
 	let deferred = Q.defer();
 
 	// Create callback functions for each possible result.
-	socket.on('error', (err) => {
+	socket.on('error', err => {
 		result.status = {};
 
 		if (err.message.indexOf('ECONNREFUSED') !== -1) {
@@ -116,7 +116,7 @@ let tcpScan = (host, port, timeout) => {
 		result.isOpen = true;
 		debug && console.log('connect');
 	});
-	socket.on('data', (data) => {
+	socket.on('data', data => {
 		// This might be useful later to get port service information
 		result.receivedData = true;
 
@@ -155,7 +155,7 @@ let udpScan = (host, port) => {
 	let deferred = Q.defer();
 	let result = { host, port, type: 'UDP' };
 
-	socket.send(buffer, 0, buffer.length, port, host, (err) => {
+	socket.send(buffer, 0, buffer.length, port, host, err => {
 		result.data = err;
 		deferred.resolve(result);
 		socket.close();
@@ -166,7 +166,7 @@ let udpScan = (host, port) => {
 
 // To determine if the machine is alive (not super reliable, but definitely better than nothing)
 // Only runs if the icmp flag is true.
-let icmpScan = (host) => {
+let icmpScan = host => {
 	let deferred = Q.defer();
 	let result = { host };
 
@@ -182,13 +182,15 @@ let icmpScan = (host) => {
 };
 
 // Does a traceroute. Unsure how reliable this is, but it seems to be working.
-let icmpTraceroute = (host) => {
+// Apparently it doesn't work when trying this from a Windows machine. It works
+// just fine from a Linux machine though.
+let icmpTraceroute = host => {
 	let deferred = Q.defer();
 	let result = { host, type: 'traceroute', route: [] };
 	let order = 0;
 
 	const session = ping.createSession({
-		retries: 10,
+		retries: 1,
 		timout: 2000
 	});
 
@@ -199,7 +201,6 @@ let icmpTraceroute = (host) => {
 			result.route.push(route);
 		},
 		(err, host) => {
-			console.log(err, host);
 			deferred.resolve(result);
 		});
 
@@ -215,24 +216,24 @@ let icmpTraceroutes = [];
 let tcpScans = [];
 let udpScans = [];
 
-hosts.forEach((host) => {
+hosts.forEach(host => {
 	if (args.icmp === 'true') icmpScans.push(icmpScan(host));
 });
 
-Q.all(icmpScans).then((icmpScanResults) => {
+Q.all(icmpScans).then(icmpScanResults => {
 	let aliveHosts = args.icmp === 'true' ? [] : hosts;
 
-	icmpScanResults.forEach((scanResult) => {
+	icmpScanResults.forEach(scanResult => {
 		if (scanResult.alive) aliveHosts.push(scanResult.host);
 	});
 
 	// Gather scans
-	aliveHosts.forEach((host) => {
+	aliveHosts.forEach(host => {
 		if (args.traceroute === 'true') icmpTraceroutes.push(icmpTraceroute(host));
 	});
 
-	aliveHosts.forEach((host) => {
-		ports.forEach((port) => {
+	aliveHosts.forEach(host => {
+		ports.forEach(port => {
 			if (args.tcp === 'true') tcpScans.push(tcpScan(host, port, parseInt(args.timeout)));
 			if (args.udp === 'true') udpScans.push(udpScan(host, port));
 		});
@@ -242,11 +243,11 @@ Q.all(icmpScans).then((icmpScanResults) => {
 
 	// Because those socket calls are asynchronous, we need to
 	// wait until we get data back from those calls.
-	Q.all(allScans).then((results) => {
+	Q.all(allScans).then(results => {
 		debug && console.log(results);
 
 		results.sort((a, b) => a.host.split('.')[3] - b.host.split('.')[3])
-		.forEach((result) => {
+		.forEach(result => {
 			let output = '';
 
 			if (result.type !== 'traceroute') {
@@ -265,9 +266,7 @@ Q.all(icmpScans).then((icmpScanResults) => {
 				output = 'traceroute: ' + result.host + '\n';
 
 				result.route.sort((first, second) => first.order - second.order)
-							.forEach((route) => {
-								output += route.order.toString() + ' ' + route.ip + '\n';
-							});
+							.forEach(route => output += route.order.toString() + ' ' + route.ip + '\n');
 			}
 
 			console.log(output);
