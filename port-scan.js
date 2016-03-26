@@ -13,8 +13,40 @@ let debug = false;
 // grab useful args and map them into an object
 // There are plenty of useful npm packages that help out with this, I will switch to one of those
 // when I get a chance.
+
+// Here are the various arguments:
+// 		--hosts 	To get the desired hosts to be scanned (required)
+// 					Can get multiple hosts with a comma separator, or a range with a dash '-'
+//
+// 			ex:	--hosts=192.168.1.100
+// 				--hosts=192.168.1.100,192.168.1.101,192.168.1.102
+// 				--hosts=192.168.1.100-102
+// 				--hosts=192.168.1.100,192.168.1.150-254
+// 			Note: the dash only works in the final octet currently
+//
+// 		--ports 	To get the desired ports to be scanned (required)
+// 					Can get multiple ports with a comma separator, or a range with a dash '-'
+// 
+// 			ex: --ports=22
+// 				--ports=22,23,80
+// 				--ports=22-80
+// 				--ports=22,23,80,135-139
+//
+// 		--tcp=true|false 	To do a TCP port scan (default: true)
+//
+// 		--udp=true|false 	To do a UDP port scan (default: false)
+//
+// 		--icmp=true|false 	Does a ping to determine whether the host(s) are alive (default: false)
+//
+// 		--traceroute=true|false		Does a traceroute from the user's device to the host(s) (default: false)
+// 			Note: This seems to only be producing reliable results on Linux machines currently.
+// 				  Still looking for a solution.
+//
+// 		--timeout=<positive integer number>		Sets the timeout for the TCP scan. (default: 2000)
+//
+// 		--showClosedPorts=true|false	Determines whether to show closed ports in scan results (default: true)
 let getArgs = argv => {
-	let usefulArgs = { tcp: 'true', timeout: 2000 };
+	let usefulArgs = { tcp: 'true', timeout: 2000, showClosedPorts: 'true' };
 
 	argv.slice(2).forEach(data => {
 		if (data.indexOf('--') !== -1) {
@@ -31,6 +63,9 @@ let getArgs = argv => {
 
 // Doesn't currently allow for subnets. I'll probably make the subnet super simple
 // and just allow /24 right now.
+
+// Parses the hosts by either a comma (192.168.1.2,192.168.1.4) or a dash (192.168.1.2-254)
+// Combining them works too (192.168.1.2,192.168.1.100-254)
 let parseHosts = hosts => {
 	debug && console.log(hosts);
 
@@ -53,6 +88,9 @@ let parseHosts = hosts => {
 
 // Am I missing anything? Also, a regex probably could have caught everything, but I really
 // didn't want to mess with that.
+
+// Just like parsing the hosts, this parses either by comma (22,23,80) or by dash (1-1000)
+// and you can combine them (22,23,80,135-139,443)
 let parsePorts = ports => {
 	debug && console.log(ports);
 
@@ -71,7 +109,7 @@ let parsePorts = ports => {
 	else return ports.split(',');
 };
 
-// Scan the hosts and the ports.
+// TCP Scan the hosts and the ports.
 let tcpScan = (host, port, timeout) => {
 	let socket = net.createConnection(port, host);
 	socket.setTimeout(timeout);
@@ -163,7 +201,7 @@ let udpScan = (host, port) => {
 }
 
 // To determine if the machine is alive (not super reliable, but definitely better than nothing)
-// Only runs if the icmp flag is true.
+// Only runs if the icmp flag is true. Essentially, a ping.
 let icmpScan = host => {
 	let deferred = Q.defer();
 	let result = { host };
@@ -182,6 +220,9 @@ let icmpScan = host => {
 // Does a traceroute. Unsure how reliable this is, but it seems to be working.
 // Apparently it doesn't work when trying this from a Windows machine. It works
 // just fine from a Linux machine though.
+
+// Eventually will write flags to allow the user to change the various flags possible
+// with traceroute (timeout, maxHopTimeouts, ttl...)
 let icmpTraceroute = host => {
 	let deferred = Q.defer();
 	let result = { host, type: 'traceroute', route: [] };
@@ -189,7 +230,7 @@ let icmpTraceroute = host => {
 
 	const session = ping.createSession({
 		retries: 1,
-		timout: 2000
+		timeout: 2000
 	});
 
 	session.traceRoute(host, { ttl: 10, maxHopTimeouts: 10 }, 
@@ -205,6 +246,10 @@ let icmpTraceroute = host => {
 	return deferred.promise;
 };
 
+// This is where we get the arguments and parse the hosts and ports.
+
+console.log('Please see the comments in the code to see how the arguments work.');
+
 let args = getArgs(process.argv);
 let hosts = parseHosts(args.hosts);
 let ports = parsePorts(args.ports);
@@ -214,10 +259,18 @@ let icmpTraceroutes = [];
 let tcpScans = [];
 let udpScans = [];
 
+// This is where the scanning begins.
 hosts.forEach(host => {
 	if (args.icmp === 'true') icmpScans.push(icmpScan(host));
 });
 
+// Q is necessary because these scans are asynchronous. In order to get the data
+// back in a nice, orderly manner is to use an asynchronous library like Q. If you've
+// had a hard time with asynchronous stuff, or are just interested in learning about it,
+// I highly recommend looking into Q. There are other great libraries out there, but Q
+// is the only one I've learned so far, and I've really like it.
+
+// A lightweight, built in version of Q is available for AngularJS, called $q.
 Q.all(icmpScans).then(icmpScanResults => {
 	let aliveHosts = args.icmp === 'true' ? [] : hosts;
 
@@ -225,7 +278,7 @@ Q.all(icmpScans).then(icmpScanResults => {
 		if (scanResult.alive) aliveHosts.push(scanResult.host);
 	});
 
-	// Gather scans
+	// Gather traceroute, TCP, and UDP scans
 	aliveHosts.forEach(host => {
 		if (args.traceroute === 'true') icmpTraceroutes.push(icmpTraceroute(host));
 	});
@@ -237,37 +290,42 @@ Q.all(icmpScans).then(icmpScanResults => {
 		});
 	});
 
+	// Put all the scans together in a single array.
 	let allScans = tcpScans.concat(udpScans).concat(icmpTraceroutes);
 
-	// Because those socket calls are asynchronous, we need to
-	// wait until we get data back from those calls.
+	// Print out the results
 	Q.all(allScans).then(results => {
 		debug && console.log(results);
 
 		results.sort((a, b) => a.host.split('.')[3] - b.host.split('.')[3])
 		.forEach(result => {
-			let output = '';
+			// I know that this is messy. I'll be sure to clean this up later.
+			if (args.showClosedPorts === 'true' ||
+				(result.type === 'TCP' && result.isOpen || result.status.state === 'open') ||
+				(result.type === 'UDP' && !(result.data || result.data === 0))) {
+				let output = '';
 
-			if (result.type !== 'traceroute') {
-				output = result.host + ':' + result.port + '\t' + result.type + '\t';
+				if (result.type !== 'traceroute') {
+					output = result.host + ':' + result.port + '\t' + result.type + '\t';
 
-				if (result.type === 'TCP') {
-					if (result.isOpen) output += 'open';
-					else if (result.status) output += result.status.state + ' (' + result.status.reason + ')';
+					if (result.type === 'TCP') {
+						if (result.isOpen) output += 'open';
+						else if (result.status) output += result.status.state + ' (' + result.status.reason + ')';
+					}
+					else if (result.type === 'UDP') {
+						if (result.data || result.data === 0) output += 'closed';
+						else output += 'maybe open (no data or error received)';
+					}
 				}
-				else if (result.type === 'UDP') {
-					if (result.data || result.data === 0) output += 'closed';
-					else output += 'maybe open (no data or error received)';
+				else if (result.type === 'traceroute') {
+					output = 'traceroute: ' + result.host + '\n';
+
+					result.route.sort((first, second) => first.order - second.order)
+								.forEach(route => output += route.order.toString() + ' ' + route.ip + '\n');
 				}
-			}
-			else if (result.type === 'traceroute') {
-				output = 'traceroute: ' + result.host + '\n';
 
-				result.route.sort((first, second) => first.order - second.order)
-							.forEach(route => output += route.order.toString() + ' ' + route.ip + '\n');
+				console.log(output);
 			}
-
-			console.log(output);
 		});
 	});
 });
