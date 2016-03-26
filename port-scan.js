@@ -7,7 +7,14 @@ const ping = require('net-ping');
 
 let debug = false;
 
+// TODO: 	format traceroute in output
+//			--help for info
+//			Also, make sure that when something weird happens in the arguments, it shows --help
+//			Hope that I get a decent amount of points...
+
 // grab useful args and map them into an object
+// There are plenty of useful npm packages that help out with this, I will switch to one of those
+// when I get a chance.
 let getArgs = (argv) => {
 	let usefulArgs = { tcp: 'true', timeout: 2000 };
 
@@ -180,17 +187,20 @@ let icmpTraceroute = (host) => {
 	let result = { host, type: 'traceroute', route: [] };
 	let order = 0;
 
-	const session = ping.createSession();
+	const session = ping.createSession({
+		retries: 10,
+		timout: 2000
+	});
 
-	session.traceRoute(host, 20, 
+	session.traceRoute(host, { ttl: 10, maxHopTimeouts: 10 }, 
 		(err, host, ttl, sent, rcvd) => {
-			if (err instanceof ping.TimeExceededError) {
-				result.route.push({ ip: err.source, order: ++order });
-			}
+			let route = { order: ++order };
+			route.ip = err ? err instanceof ping.TimeExceededError ? err.source : err.message : host;
+			result.route.push(route);
 		},
 		(err, host) => {
-			if (!err) deferred.resolve(result);
-			else deferred.reject(result);
+			console.log(err, host);
+			deferred.resolve(result);
 		});
 
 	return deferred.promise;
@@ -237,18 +247,27 @@ Q.all(icmpScans).then((icmpScanResults) => {
 
 		results.sort((a, b) => a.host.split('.')[3] - b.host.split('.')[3])
 		.forEach((result) => {
-			let output = result.host + ':' + result.port + '\t' + result.type + '\t';
+			let output = '';
 
-			if (result.type === 'TCP') {
-				if (result.isOpen) output += 'open';
-				else if (result.status) output += result.status.state + ' (' + result.status.reason + ')';
-			}
-			else if (result.type === 'UDP') {
-				if (result.data || result.data === 0) output += 'closed';
-				else output += 'maybe open (no data or error received)';
+			if (result.type !== 'traceroute') {
+				output = result.host + ':' + result.port + '\t' + result.type + '\t';
+
+				if (result.type === 'TCP') {
+					if (result.isOpen) output += 'open';
+					else if (result.status) output += result.status.state + ' (' + result.status.reason + ')';
+				}
+				else if (result.type === 'UDP') {
+					if (result.data || result.data === 0) output += 'closed';
+					else output += 'maybe open (no data or error received)';
+				}
 			}
 			else if (result.type === 'traceroute') {
-				console.log(result);
+				output = 'traceroute: ' + result.host + '\n';
+
+				result.route.sort((first, second) => first.order - second.order)
+							.forEach((route) => {
+								output += route.order.toString() + ' ' + route.ip + '\n';
+							});
 			}
 
 			console.log(output);
