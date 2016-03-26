@@ -6,11 +6,9 @@ const Q = require('q');
 const ping = require('net-ping');
 
 let debug = false;
-
-// TODO: 	
-//			--help for info
+ 	
+// TODO:	--help for info
 //			Also, make sure that when something weird happens in the arguments, it shows --help
-//			Hope that I get a decent amount of points...
 
 // grab useful args and map them into an object
 // There are plenty of useful npm packages that help out with this, I will switch to one of those
