@@ -1,0 +1,24 @@
+{
+  "name": "simple-port-scanner",
+  "version": "0.0.1",
+  "description": "Simple port scanner written in JavaScript running on Node.js",
+  "main": "port-scan.js",
+  "dependencies": {
+    "net-ping": "^1.2.0",
+    "q": "^1.4.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Besendorfer/simple-port-scanner.git"
+  },
+  "author": "Teancum Besendorfer",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Besendorfer/simple-port-scanner/issues"
+  },
+  "homepage": "https://github.com/Besendorfer/simple-port-scanner#readme"
+}
