@@ -1,14 +1,7 @@
 # JavaScript Simple Port Scanner
 
-TODO:	--help for info
-		Also, make sure that when something weird happens in the arguments, it shows --help
-
-grab useful args and map them into an object  
-There are plenty of useful npm packages that help out with this, I will switch to one of those  
-when I get a chance.
-
 Here are the various arguments:  
-'''		--hosts 	To get the desired hosts to be scanned (required)
+```		--hosts 	To get the desired hosts to be scanned (required)
 					Can get multiple hosts with a comma separator, or a range with a dash '-'
 
 			ex:	--hosts=192.168.1.100
@@ -38,4 +31,8 @@ Here are the various arguments:
 		--timeout=<positive integer number>		Sets the timeout for the TCP scan. (default: 2000)
 
 		--showClosedPorts=true|false	Determines whether to show closed ports in scan results (default: true)
-'''
+```
+
+TODO:	
+* --help for info
+* Also, make sure that when something weird happens in the arguments, it shows --help
