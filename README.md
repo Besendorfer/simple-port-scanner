@@ -1,5 +1,24 @@
 # JavaScript Simple Port Scanner
 
+I might eventually put this up on npmjs so this port scanner can be installed directly through
+npm, but currently you can just clone this project to get the code and run it with `node`.
+
+```
+git clone https://github.com/Besendorfer/simple-port-scanner.git
+```
+
+As mentioned, you need `node` and `npm` to get this running. After you've installed those, you
+can either do an `npm install`, which installs the required packages listed in the packages.json
+file, or you can just install the two required packages on their own with `npm install q net-ping`.
+
+After you've installed the necessary packages, all that you need to do now is to run it!
+
+```
+node port-scan.js <arguments>
+```
+
+**Note: in order to run either the --icmp or --traceroute commands, you need root privileges.**
+
 Here are the various arguments:  
 ```		
         --hosts 	To get the desired hosts to be scanned (required)
