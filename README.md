@@ -1,7 +1,8 @@
 # JavaScript Simple Port Scanner
 
 Here are the various arguments:  
-```		--hosts 	To get the desired hosts to be scanned (required)
+```		
+        --hosts 	To get the desired hosts to be scanned (required)
 					Can get multiple hosts with a comma separator, or a range with a dash '-'
 
 			ex:	--hosts=192.168.1.100
