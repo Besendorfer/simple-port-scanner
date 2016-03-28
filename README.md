@@ -54,5 +54,5 @@ Here are the various arguments:
 ```
 
 TODO:	
-* --help for info
-* Also, make sure that when something weird happens in the arguments, it shows --help
+- [ ] --help for info
+- [ ] Also, make sure that when something weird happens in the arguments, it shows --help
