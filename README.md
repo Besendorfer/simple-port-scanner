@@ -56,3 +56,4 @@ Here are the various arguments:
 TODO:	
 - [ ] --help for info
 - [ ] Also, make sure that when something weird happens in the arguments, it shows --help
+- [ ] Lots more; will enumerate when I have time.
