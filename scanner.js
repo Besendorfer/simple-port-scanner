@@ -40,7 +40,7 @@
 	} else {
 		root.scanner = scanner
 	}
-}).call(this)
+})()
 
 /////////////////////////// OLD CODE
 
