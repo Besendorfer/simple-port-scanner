@@ -4,6 +4,7 @@
   "description": "Simple port scanner written in JavaScript running on Node.js",
   "main": "port-scan.js",
   "dependencies": {
+    "commander": "^2.9.0",
     "net-ping": "^1.2.0",
     "q": "^1.4.1"
   },

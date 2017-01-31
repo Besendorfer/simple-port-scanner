@@ -1,5 +1,49 @@
 'use strict';
 
+(function () {
+	var root = this
+
+	var hasRequire = typeof require !== 'undefined'
+
+	// Include required dependencies.
+	// Find a better format to do this? This seems quite bloated...
+	var q = root.q
+
+	if (typeof q === 'undefined') {
+		if(hasRequire) {
+			q = require('q')
+		} else {
+			throw new Error('scanner requires q. Please install.')
+		}
+	}
+
+	var netPing = root.netPing
+
+	if (typeof netPing === 'undefined') {
+		if (hasRequire) {
+			netPing = require('net-ping')
+		} else {
+			throw new Error('scanner requires net-ping. Please install.')
+		}
+	}
+
+	// Implementation constructor
+	var scanner = function () {
+		
+	}
+
+	if (typeof exports !== 'undefined') {
+		if (typeof module !== 'undefined' && module.exports) {
+			exports = module.exports = scanner
+		}
+		exports.scanner = scanner
+	} else {
+		root.scanner = scanner
+	}
+}).call(this)
+
+/////////////////////////// OLD CODE
+
 const net = require('net');
 const dgram = require('dgram');
 const Q = require('q');
