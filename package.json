@@ -2,11 +2,11 @@
   "name": "simple-port-scanner",
   "version": "0.0.1",
   "description": "Simple port scanner written in JavaScript running on Node.js",
-  "main": "port-scan.js",
+  "main": "src/scanner.js",
   "dependencies": {
-    "commander": "^2.9.0",
-    "net-ping": "^1.2.0",
-    "q": "^1.4.1"
+    "commander": "^2.17.1",
+    "net-ping": "^1.2.3",
+    "q": "^1.5.1"
   },
   "devDependencies": {},
   "scripts": {

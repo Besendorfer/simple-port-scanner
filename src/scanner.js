@@ -8,98 +8,36 @@
 
 (function (root, factory) {
   if (typeof define === 'function' && define.amd) {
-    define(['net', 'dgram', 'q', 'net-ping'], factory)
+    define(['net', 'dgram', 'q', 'net-ping', 'commander'], factory)
   } else if (typeof module === 'object' && module.exports) {
-    module.exports = factory(require('q'), require('net-ping'), require('commander'))
+    module.exports = factory(require('net'), require('dgram'), require('q'), require('net-ping'), require('commander'))
   } else {
     root.returnExports = factory(root.net, root.dgram, root.q, root['net-ping'], root.commander)
   }
-})(this, function (q, netPing, commander) {
+})(typeof self !== 'undefined' ? self : this, function (net, dgram, q, netPing, commander) {
   // I'm well aware that this implementation may not work with anything but node.js. I'll have to
   // Figure out how to make it work with AMD and a browser later.
 
-  // TODO: also consider using RxJs instead of q.
-
   let debug = true
 
-  commander
-    .version('0.0.0-1')
-    .usage('-H <hosts> -p <ports> [options]')
-    .option('-H, --hosts <items>', 'To get the desired hosts to be scanned (required).')
-    .option('-p, --ports <items>', 'To get the desired ports to be scanned (required).')
-    .option('-t, --tcp', 'To do a TCP Port scan.')
-    .option('-u, --udp', 'To do a UDP Port scan.')
-    .option('-i, --icmp', 'Does a ping to determine if the hosts are alive.')
-    .option('-r, --traceroute', 'Does a traceroute from the user\'s device to the host(s).')
-    .option('-o, --timeout [value]', 'Sets the timeout for the TCP scan (in milliseconds).')
-    .option('-s, --show-closed-ports', 'To show closed ports in results.')
-    .parse(process.argv)
+  // Ran directly from Node.js (for example, from a terminal)
+  if (require.main === module) {
+    debug && console.log('Called from terminal!')
 
-  return {}
+    const terminal = require('./terminal')
+    terminal.execute(commander, process.argv)
+  }
+
+  return {
+    ping: require('./ping'),
+    tcpScan: require('./scan')('tcp'),
+    udpScan: require('./scan')('udp'),
+    scan: require('./scan'),
+    options: require('./options')
+  }
 })
 
 /////////////////////////// OLD CODE
-
-// const net = require('net');
-// const dgram = require('dgram');
-// const Q = require('q');
-// const ping = require('net-ping');
-
-// let debug = false;
-   
-// // TODO:	--help for info
-// //			Also, make sure that when something weird happens in the arguments, it shows --help
-
-// // grab useful args and map them into an object
-// // There are plenty of useful npm packages that help out with this, I will switch to one of those
-// // when I get a chance.
-
-// // Here are the various arguments:
-// // 		--hosts 	To get the desired hosts to be scanned (required)
-// // 					Can get multiple hosts with a comma separator, or a range with a dash '-'
-// //
-// // 			ex:	--hosts=192.168.1.100
-// // 				--hosts=192.168.1.100,192.168.1.101,192.168.1.102
-// // 				--hosts=192.168.1.100-102
-// // 				--hosts=192.168.1.100,192.168.1.150-254
-// // 			Note: the dash only works in the final octet currently
-// //
-// // 		--ports 	To get the desired ports to be scanned (required)
-// // 					Can get multiple ports with a comma separator, or a range with a dash '-'
-// // 
-// // 			ex: --ports=22
-// // 				--ports=22,23,80
-// // 				--ports=22-80
-// // 				--ports=22,23,80,135-139
-// //
-// // 		--tcp=true|false 	To do a TCP port scan (default: true)
-// //
-// // 		--udp=true|false 	To do a UDP port scan (default: false)
-// //
-// // 		--icmp=true|false 	Does a ping to determine whether the host(s) are alive (default: false)
-// //
-// // 		--traceroute=true|false		Does a traceroute from the user's device to the host(s) (default: false)
-// // 			Note: This seems to only be producing reliable results on Linux machines currently.
-// // 				  Still looking for a solution.
-// //
-// // 		--timeout=<positive integer number>		Sets the timeout for the TCP scan. (default: 2000)
-// //
-// // 		--showClosedPorts=true|false	Determines whether to show closed ports in scan results (default: true)
-// let getArgs = argv => {
-//   let usefulArgs = { tcp: 'true', timeout: 2000, showClosedPorts: 'true' };
-
-//   argv.slice(2).forEach(data => {
-//     if (data.indexOf('--') !== -1) {
-//       let equals = data.indexOf('=');
-
-//       usefulArgs[data.slice(2, equals)] = data.slice(equals + 1);
-//     }
-//   });
-
-//   debug && console.log(usefulArgs);
-
-//   return usefulArgs;
-// };
 
 // // Doesn't currently allow for subnets. I'll probably make the subnet super simple
 // // and just allow /24 right now.
